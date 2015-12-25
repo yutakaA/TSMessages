@@ -112,7 +112,8 @@ typedef NS_ENUM(NSInteger,TSMessageNotificationDuration) {
                                    title:(NSString *)title
                                 subtitle:(NSString *)subtitle
                                     type:(TSMessageNotificationType)type
-                                duration:(NSTimeInterval)duration;
+                                duration:(NSTimeInterval)duration
+                       animationDuration:(NSTimeInterval)animationDuration;
 
 /** Shows a notification message in a specific view controller with a specific duration
  @param viewController The view controller to show the notification in.
@@ -128,6 +129,7 @@ typedef NS_ENUM(NSInteger,TSMessageNotificationDuration) {
                                 subtitle:(NSString *)subtitle
                                     type:(TSMessageNotificationType)type
                                 duration:(NSTimeInterval)duration
+                       animationDuration:(NSTimeInterval)animationDuration
                      canBeDismissedByUser:(BOOL)dismissingEnabled;
 
 
@@ -151,8 +153,21 @@ typedef NS_ENUM(NSInteger,TSMessageNotificationDuration) {
                                    image:(UIImage *)image
                                     type:(TSMessageNotificationType)type
                                 duration:(NSTimeInterval)duration
+                       animationDuration:(CGFloat)animationDuration
                                 callback:(void (^)())callback
                              buttonTitle:(NSString *)buttonTitle
+                          buttonCallback:(void (^)())buttonCallback
+                              atPosition:(TSMessageNotificationPosition)messagePosition
+                    canBeDismissedByUser:(BOOL)dismissingEnabled;
+
+
+// NOTE: メッセージだけ表示させる
++ (void)showNotificationInViewController:(UIViewController *)viewController
+                                 message:(NSString *)message
+                                    type:(TSMessageNotificationType)type
+                                duration:(NSTimeInterval)duration
+                       animationDuration:(CGFloat)animationDuration
+                                callback:(void (^)())callback
                           buttonCallback:(void (^)())buttonCallback
                               atPosition:(TSMessageNotificationPosition)messagePosition
                     canBeDismissedByUser:(BOOL)dismissingEnabled;

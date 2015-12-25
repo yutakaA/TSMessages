@@ -66,6 +66,7 @@ __weak static UIViewController *_defaultViewController;
                                 subtitle:(NSString *)subtitle
                                     type:(TSMessageNotificationType)type
                                 duration:(NSTimeInterval)duration
+                       animationDuration:(NSTimeInterval)animationDuration
 {
     [self showNotificationInViewController:viewController
                                      title:title
@@ -73,6 +74,7 @@ __weak static UIViewController *_defaultViewController;
                                      image:nil
                                       type:type
                                   duration:duration
+                         animationDuration:animationDuration
                                   callback:nil
                                buttonTitle:nil
                             buttonCallback:nil
@@ -85,6 +87,7 @@ __weak static UIViewController *_defaultViewController;
                                 subtitle:(NSString *)subtitle
                                     type:(TSMessageNotificationType)type
                                 duration:(NSTimeInterval)duration
+                       animationDuration:(NSTimeInterval)animationDuration
                      canBeDismissedByUser:(BOOL)dismissingEnabled
 {
     [self showNotificationInViewController:viewController
@@ -93,6 +96,7 @@ __weak static UIViewController *_defaultViewController;
                                      image:nil
                                       type:type
                                   duration:duration
+                         animationDuration:animationDuration
                                   callback:nil
                                buttonTitle:nil
                             buttonCallback:nil
@@ -111,6 +115,7 @@ __weak static UIViewController *_defaultViewController;
                                      image:nil
                                       type:type
                                   duration:TSMessageNotificationDurationAutomatic
+                         animationDuration:TSMessageNotificationDurationAutomatic
                                   callback:nil
                                buttonTitle:nil
                             buttonCallback:nil
@@ -125,6 +130,7 @@ __weak static UIViewController *_defaultViewController;
                                    image:(UIImage *)image
                                     type:(TSMessageNotificationType)type
                                 duration:(NSTimeInterval)duration
+                       animationDuration:animationDuration
                                 callback:(void (^)())callback
                              buttonTitle:(NSString *)buttonTitle
                           buttonCallback:(void (^)())buttonCallback
@@ -137,9 +143,33 @@ __weak static UIViewController *_defaultViewController;
                                                       image:image
                                                        type:type
                                                    duration:duration
+                                          animationDuration:animationDuration
                                            inViewController:viewController
                                                    callback:callback
                                                 buttonTitle:buttonTitle
+                                             buttonCallback:buttonCallback
+                                                 atPosition:messagePosition
+                                       canBeDismissedByUser:dismissingEnabled];
+    [self prepareNotificationToBeShown:v];
+}
+
+
++ (void)showNotificationInViewController:(UIViewController *)viewController
+                                 message:(NSString *)message
+                                    type:(TSMessageNotificationType)type
+                                duration:(NSTimeInterval)duration
+                       animationDuration:(CGFloat)animationDuration
+                                callback:(void (^)())callback
+                          buttonCallback:(void (^)())buttonCallback
+                              atPosition:(TSMessageNotificationPosition)messagePosition
+                    canBeDismissedByUser:(BOOL)dismissingEnabled {
+    // NOTE: message only
+    TSMessageView *v = [[TSMessageView alloc] initWithMessage:message
+                                                       type:type
+                                                   duration:duration
+                                          animationDuration:animationDuration
+                                           inViewController:viewController
+                                                   callback:callback
                                              buttonCallback:buttonCallback
                                                  atPosition:messagePosition
                                        canBeDismissedByUser:dismissingEnabled];
@@ -277,16 +307,19 @@ __weak static UIViewController *_defaultViewController;
     void(^completionBlock)(BOOL) = ^(BOOL finished) {
         currentView.messageIsFullyDisplayed = YES;
     };
-    
+
+    if (currentView.animationDuration == TSMessageNotificationDurationAutomatic) {
+        currentView.animationDuration = kTSMessageAnimationDuration
+    }
     if (![TSMessage iOS7StyleEnabled]) {
-        [UIView animateWithDuration:kTSMessageAnimationDuration
+        [UIView animateWithDuration:currentView.animationDuration
                               delay:0.0
                             options:UIViewAnimationOptionCurveEaseInOut | UIViewAnimationOptionBeginFromCurrentState | UIViewAnimationOptionAllowUserInteraction
                          animations:animationBlock
                          completion:completionBlock];
     } else {
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 70000
-        [UIView animateWithDuration:kTSMessageAnimationDuration + 0.1
+        [UIView animateWithDuration:currentView.animationDuration + 0.1
                               delay:0
              usingSpringWithDamping:0.8
               initialSpringVelocity:0.f
@@ -346,7 +379,10 @@ __weak static UIViewController *_defaultViewController;
                                      currentView.viewController.view.bounds.size.height + CGRectGetHeight(currentView.frame)/2.f);
     }
     
-    [UIView animateWithDuration:kTSMessageAnimationDuration animations:^
+    if (currentView.animationDuration == TSMessageNotificationDurationAutomatic) {
+        currentView.animationDuration = kTSMessageAnimationDuration
+    }
+    [UIView animateWithDuration:currentView.animationDuration animations:^
      {
          currentView.center = fadeOutToPoint;
          if (![TSMessage iOS7StyleEnabled]) {

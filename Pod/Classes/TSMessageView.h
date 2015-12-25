@@ -28,6 +28,9 @@
 /** The duration of the displayed message. If it is 0.0, it will automatically be calculated */
 @property (nonatomic, assign) CGFloat duration;
 
+// NOTE: アニメーションの速度もカスタマイズできるように追加
+@property (nonatomic, assign) CGFloat animationDuration;
+
 /** The position of the message (top or bottom) */
 @property (nonatomic, assign) TSMessageNotificationPosition messagePosition;
 
@@ -44,7 +47,19 @@
 @property (nonatomic,strong) UIImage *successIcon UI_APPEARANCE_SELECTOR;
 @property (nonatomic,strong) UIImage *warningIcon UI_APPEARANCE_SELECTOR;
 
-
+// NOTE: labelの位置などカスタマイズできるようにhファイルに移動
+/** Internal properties needed to resize the view on device rotation properly */
+@property (nonatomic, strong) UILabel *titleLabel;
+@property (nonatomic, strong) UILabel *contentLabel;
+@property (nonatomic, strong) UIImageView *iconImageView;
+@property (nonatomic, strong) UIButton *button;
+@property (nonatomic, strong) UIView *borderView;
+@property (nonatomic, strong) UIImageView *backgroundImageView;
+@property (nonatomic, strong) TSBlurView *backgroundBlurView; // Only used in iOS 7
+@property (nonatomic, assign) CGFloat textSpaceLeft;
+@property (nonatomic, assign) CGFloat textSpaceRight;
+@property (copy) void (^callback)();
+@property (copy) void (^buttonCallback)();
 
 /** Inits the notification view. Do not call this from outside this library.
  @param title The title of the notification view
@@ -64,6 +79,7 @@
               image:(UIImage *)image
                type:(TSMessageNotificationType)notificationType
            duration:(CGFloat)duration
+  animationDuration:(CGFloat)animationDuration
    inViewController:(UIViewController *)viewController
            callback:(void (^)())callback
         buttonTitle:(NSString *)buttonTitle
@@ -71,11 +87,27 @@
          atPosition:(TSMessageNotificationPosition)position
 canBeDismissedByUser:(BOOL)dismissingEnabled;
 
+// NOTE: メッセージのみのViewにしたい時のinitを追加
+- (id)initWithMessage:(NSString *)message
+                 type:(TSMessageNotificationType)notificationType
+             duration:(CGFloat)duration
+    animationDuration:(CGFloat)animationDuration
+     inViewController:(UIViewController *)viewController
+             callback:(void (^)())callback
+       buttonCallback:(void (^)())buttonCallback
+           atPosition:(TSMessageNotificationPosition)position
+ canBeDismissedByUser:(BOOL)dismissingEnabled;
+
+
 /** Fades out this notification view */
 - (void)fadeMeOut;
 
 /** Use this method to load a custom design file */
 + (void)addNotificationDesignFromFile:(NSString *)file;
 
+// NOTE: labelの配置などを決める
+// Swiftから使用する際→extensionでオリジナルにカスタマイズしてね
+- (CGFloat)updateHeightOfMessageView;
+- (void)layoutSubviews;
 
 @end

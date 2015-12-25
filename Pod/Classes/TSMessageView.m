@@ -35,26 +35,6 @@ static NSMutableDictionary *_notificationDesign;
 /** The view controller this message is displayed in */
 @property (nonatomic, strong) UIViewController *viewController;
 
-
-/** Internal properties needed to resize the view on device rotation properly */
-@property (nonatomic, strong) UILabel *titleLabel;
-
-@property (nonatomic, strong) UILabel *contentLabel;
-@property (nonatomic, strong) UIImageView *iconImageView;
-@property (nonatomic, strong) UIButton *button;
-@property (nonatomic, strong) UIView *borderView;
-@property (nonatomic, strong) UIImageView *backgroundImageView;
-@property (nonatomic, strong) TSBlurView *backgroundBlurView; // Only used in iOS 7
-
-@property (nonatomic, assign) CGFloat textSpaceLeft;
-@property (nonatomic, assign) CGFloat textSpaceRight;
-
-@property (copy) void (^callback)();
-@property (copy) void (^buttonCallback)();
-
-- (CGFloat)updateHeightOfMessageView;
-- (void)layoutSubviews;
-
 @end
 
 
@@ -186,6 +166,7 @@ static NSMutableDictionary *_notificationDesign;
               image:(UIImage *)image
                type:(TSMessageNotificationType)aNotificationType
            duration:(CGFloat)duration
+  animationDuration:(CGFloat)animationDuration
    inViewController:(UIViewController *)viewController
            callback:(void (^)())callback
         buttonTitle:(NSString *)buttonTitle
@@ -197,17 +178,18 @@ canBeDismissedByUser:(BOOL)dismissingEnabled
 
     if ((self = [self init]))
     {
-        _title = title;
-        _subtitle = subtitle;
-        _buttonTitle = buttonTitle;
-        _duration = duration;
-        _viewController = viewController;
-        _messagePosition = position;
-        self.callback = callback;
+        _title              = title;
+        _subtitle           = subtitle;
+        _buttonTitle        = buttonTitle;
+        _duration           = duration;
+        _animationDuration  = animationDuration;
+        _viewController     = viewController;
+        _messagePosition    = position;
+        self.callback       = callback;
         self.buttonCallback = buttonCallback;
 
         CGFloat screenWidth = self.viewController.view.bounds.size.width;
-        CGFloat padding = [self padding];
+        CGFloat padding     = [self padding];
 
         NSDictionary *current;
         NSString *currentString;
@@ -435,6 +417,162 @@ canBeDismissedByUser:(BOOL)dismissingEnabled
             [self addGestureRecognizer:tapRec];
         }
 
+        if (self.callback) {
+            UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
+            tapGesture.delegate = self;
+            [self addGestureRecognizer:tapGesture];
+        }
+    }
+    return self;
+}
+
+
+- (id)initWithMessage:(NSString *)message
+                 type:(TSMessageNotificationType)notificationType
+             duration:(CGFloat)duration
+    animationDuration:(CGFloat)animationDuration
+     inViewController:(UIViewController *)viewController
+             callback:(void (^)())callback
+       buttonCallback:(void (^)())buttonCallback
+           atPosition:(TSMessageNotificationPosition)position
+ canBeDismissedByUser:(BOOL)dismissingEnabled {
+
+    NSDictionary *notificationDesign = [TSMessageView notificationDesign];
+
+    if ((self = [self init])) {
+        _subtitle           = message;
+        _duration           = duration;
+        _animationDuration  = animationDuration;
+        _viewController     = viewController;
+        _messagePosition    = position;
+        self.callback       = callback;
+        self.buttonCallback = buttonCallback;
+
+        CGFloat screenWidth = self.viewController.view.bounds.size.width;
+        CGFloat padding     = [self padding];
+
+        NSDictionary *current;
+        NSString     *currentString;
+        notificationType = aNotificationType;
+        switch (notificationType) {
+            case TSMessageNotificationTypeMessage:
+            {
+                currentString = @"message";
+                break;
+            }
+            case TSMessageNotificationTypeError:
+            {
+                currentString = @"error";
+                break;
+            }
+            case TSMessageNotificationTypeSuccess:
+            {
+                currentString = @"success";
+                break;
+            }
+            case TSMessageNotificationTypeWarning:
+            {
+                currentString = @"warning";
+                break;
+            }
+
+            default:
+                break;
+        }
+
+        current = [notificationDesign valueForKey:currentString];
+
+
+        if (![TSMessage iOS7StyleEnabled]) {
+            self.alpha = 0.0;
+
+            // add background image here
+            UIImage *backgroundImage = [self bundledImageNamed:[current valueForKey:@"backgroundImageName"]];
+            backgroundImage = [backgroundImage stretchableImageWithLeftCapWidth:0.0 topCapHeight:0.0];
+
+            _backgroundImageView = [[UIImageView alloc] initWithImage:backgroundImage];
+            self.backgroundImageView.autoresizingMask = (UIViewAutoresizingFlexibleWidth);
+            [self addSubview:self.backgroundImageView];
+        } else {
+            // On iOS 7 and above use a blur layer instead (not yet finished)
+            _backgroundBlurView = [[TSBlurView alloc] init];
+            self.backgroundBlurView.autoresizingMask = (UIViewAutoresizingFlexibleWidth);
+            self.backgroundBlurView.blurTintColor = [UIColor colorWithHexString:current[@"backgroundColor"]];
+            [self addSubview:self.backgroundBlurView];
+        }
+
+        UIColor *fontColor = [UIColor colorWithHexString:[current valueForKey:@"textColor"]];
+
+
+        self.textSpaceLeft = 2 * padding;
+        if (image) self.textSpaceLeft += image.size.width + 2 * padding;
+
+        // Set up content label (if set)
+        if ([subtitle length]) {
+            _contentLabel = [[UILabel alloc] init];
+            [self.contentLabel setText:subtitle];
+
+            UIColor *contentTextColor = [UIColor colorWithHexString:[current valueForKey:@"contentTextColor"]];
+            if (!contentTextColor) {
+                contentTextColor = fontColor;
+            }
+            [self.contentLabel setTextColor:contentTextColor];
+            [self.contentLabel setBackgroundColor:[UIColor clearColor]];
+            CGFloat fontSize = [[current valueForKey:@"contentFontSize"] floatValue];
+            NSString *fontName = [current valueForKey:@"contentFontName"];
+            if (fontName != nil) {
+                [self.contentLabel setFont:[UIFont fontWithName:fontName size:fontSize]];
+            } else {
+                [self.contentLabel setFont:[UIFont systemFontOfSize:fontSize]];
+            }
+            [self.contentLabel setShadowColor:self.titleLabel.shadowColor];
+            [self.contentLabel setShadowOffset:self.titleLabel.shadowOffset];
+            self.contentLabel.lineBreakMode = self.titleLabel.lineBreakMode;
+            self.contentLabel.numberOfLines = 0;
+
+            [self addSubview:self.contentLabel];
+        }
+
+        // Add a border on the bottom (or on the top, depending on the view's postion)
+        if (![TSMessage iOS7StyleEnabled]) {
+            _borderView = [[UIView alloc] initWithFrame:CGRectMake(0.0,
+                                                                   0.0, // will be set later
+                                                                   screenWidth,
+                                                                   [[current valueForKey:@"borderHeight"] floatValue])];
+            self.borderView.backgroundColor = [UIColor colorWithHexString:[current valueForKey:@"borderColor"]];
+            self.borderView.autoresizingMask = (UIViewAutoresizingFlexibleWidth);
+            [self addSubview:self.borderView];
+        }
+
+
+        CGFloat actualHeight = [self updateHeightOfMessageView]; // this call also takes care of positioning the labels
+        CGFloat topPosition = -actualHeight;
+
+        if (self.messagePosition == TSMessageNotificationPositionBottom) {
+            topPosition = self.viewController.view.bounds.size.height;
+        }
+
+        self.frame = CGRectMake(0.0, topPosition, screenWidth, actualHeight);
+
+        if (self.messagePosition == TSMessageNotificationPositionTop) {
+            self.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+        } else {
+            self.autoresizingMask = (UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin);
+        }
+
+        if (dismissingEnabled) {
+            UISwipeGestureRecognizer *gestureRec = [[UISwipeGestureRecognizer alloc] initWithTarget:self
+                                                                                             action:@selector(fadeMeOut)];
+            [gestureRec setDirection:(self.messagePosition == TSMessageNotificationPositionTop ?
+                                      UISwipeGestureRecognizerDirectionUp :
+                                      UISwipeGestureRecognizerDirectionDown)];
+            [self addGestureRecognizer:gestureRec];
+
+            UITapGestureRecognizer *tapRec = [[UITapGestureRecognizer alloc] initWithTarget:self
+                                                                                     action:@selector(fadeMeOut)];
+            [self addGestureRecognizer:tapRec];
+        }
+        
         if (self.callback) {
             UITapGestureRecognizer *tapGesture = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(handleTap:)];
             tapGesture.delegate = self;
